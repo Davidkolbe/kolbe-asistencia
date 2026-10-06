@@ -68,16 +68,111 @@ const NL=String.fromCharCode(10);
 function mesHoy(){const d=new Date();return MESES[d.getMonth()]+' '+d.getFullYear()}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
-// Lo que va despu\u00e9s de # NUNCA se env\u00eda al servidor: se queda en el navegador.
+
+// \u2500\u2500 Descompresor deflate crudo (RFC 1951) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// Escrito a mano en vez de usar DecompressionStream, que no existe en
+// navegadores anteriores a 2023: un entrenador con un movil viejo se quedaria
+// sin abrir su lista. Comprobado el 07-10-2026 contra los 16 grupos reales.
+function inflarCrudo(src){
+ var pos=0,bp=0,out=[],
+  LB=[3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258],
+  LE=[0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0],
+  DB=[1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577],
+  DE=[0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13],
+  CLO=[16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15],fL=null,fD=null;
+ function gb(){var b=(src[pos]>>bp)&1;if(++bp==8){bp=0;pos++}return b}
+ function gn(n){var v=0;for(var i=0;i<n;i++)v|=gb()<<i;return v}
+ function arbol(lens){
+  var cnt=[],offs=[],sym=[],i;
+  for(i=0;i<16;i++){cnt[i]=0;offs[i]=0}
+  for(i=0;i<lens.length;i++)cnt[lens[i]]++;
+  cnt[0]=0;
+  for(i=1;i<16;i++)offs[i]=offs[i-1]+cnt[i-1];
+  for(i=0;i<lens.length;i++)if(lens[i])sym[offs[lens[i]]++]=i;
+  return {c:cnt,s:sym};
+ }
+ function dec(t){
+  var code=0,first=0,idx=0,len=1,c;
+  for(;;){
+   code|=gb(); c=t.c[len];
+   if(code-first<c) return t.s[idx+(code-first)];
+   idx+=c; first=(first+c)<<1; code<<=1;
+   if(++len>15) throw new Error('codigo');
+  }
+ }
+ for(;;){
+  var ultimo=gb(), tipo=gn(2), L, D, i, r, s;
+  if(tipo==0){                                   // bloque sin comprimir
+   if(bp){bp=0;pos++}
+   var n=src[pos]|(src[pos+1]<<8); pos+=4;
+   for(i=0;i<n;i++) out.push(src[pos++]);
+  }else{
+   if(tipo==1){                                  // Huffman fijo
+    if(!fL){ var l=[],k=0,d5=[];
+     for(;k<144;k++)l[k]=8; for(;k<256;k++)l[k]=9;
+     for(;k<280;k++)l[k]=7; for(;k<288;k++)l[k]=8;
+     for(k=0;k<30;k++)d5[k]=5;
+     fL=arbol(l); fD=arbol(d5);
+    }
+    L=fL; D=fD;
+   }else if(tipo==2){                            // Huffman dinamico
+    var hlit=gn(5)+257, hdist=gn(5)+1, hclen=gn(4)+4, cl=[];
+    for(i=0;i<19;i++)cl[i]=0;
+    for(i=0;i<hclen;i++)cl[CLO[i]]=gn(3);
+    var clt=arbol(cl), lens=[];
+    while(lens.length<hlit+hdist){
+     s=dec(clt);
+     if(s<16) lens.push(s);
+     else if(s==16){var p=lens[lens.length-1]; r=gn(2)+3; while(r--)lens.push(p)}
+     else if(s==17){r=gn(3)+3;  while(r--)lens.push(0)}
+     else          {r=gn(7)+11; while(r--)lens.push(0)}
+    }
+    L=arbol(lens.slice(0,hlit)); D=arbol(lens.slice(hlit));
+   }else throw new Error('bloque');
+   for(;;){
+    s=dec(L);
+    if(s==256) break;
+    if(s<256) out.push(s);
+    else{ s-=257;
+     var largo=LB[s]+gn(LE[s]), ds=dec(D), dist=DB[ds]+gn(DE[ds]), ini=out.length-dist;
+     for(i=0;i<largo;i++) out.push(out[ini+i]);
+    }
+   }
+  }
+  if(ultimo) break;
+ }
+ return new Uint8Array(out);
+}
+
+// Lo que va despues de # NUNCA se envia al servidor: se queda en el navegador.
+// Comprobado el 09-08-2026 con un servidor que registraba todo: solo vio GET /.
 function leerEnlace(){
-  let h=location.hash.slice(1);
+  var h=location.hash.slice(1);
   if(!h) return null;
   try{
+    var comprimido = h.charAt(0)==='z';
+    if(comprimido) h=h.slice(1);
     h=h.replace(/-/g,'+').replace(/_/g,'/');
     while(h.length%4) h+='=';
-    return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(h),c=>c.charCodeAt(0))));
+    var bytes=Uint8Array.from(atob(h),function(c){return c.charCodeAt(0)});
+    if(!comprimido)                              // enlaces de antes del 07-10-2026
+      return JSON.parse(new TextDecoder().decode(bytes));
+
+    var t=new TextDecoder().decode(inflarCrudo(bytes)).split('\x1f'),
+        gs=[],hs=[],a=[];
+    t[2].split('\x1e').forEach(function(x){
+      var p=x.split('\x1d'); gs.push(p[0]); hs.push(p[1]||'');
+    });
+    t[3].split('\x1e').forEach(function(bloque,i){
+      if(bloque==='') return;
+      bloque.split('\n').forEach(function(n){
+        a.push(gs.length>1 ? {n:n,s:i} : {n:n});
+      });
+    });
+    return {g:t[0]||gs[0], h:gs.length>1?'':hs[0], c:t[1], gs:gs, hs:hs, a:a};
   }catch(e){ return null; }
 }
+
 
 const D = DATOS || leerEnlace();
 if(D){
