@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Dorsales &#183; CDK</title>
+<style>
+ :root{--v:#006E32;--mal:#b3261e;--t:#1a1a1a;--g:#666;--l:#e0e0e0;--bg:#fff;--c:#fafafa}
+ @media(prefers-color-scheme:dark){:root{--mal:#ff8a80;--t:#eee;--g:#aaa;--l:#333;--bg:#151515;--c:#1f1f1f}}
+ *{box-sizing:border-box}
+ body{margin:0;background:var(--bg);color:var(--t);
+  font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+ .w{max-width:560px;margin:0 auto;padding:20px 16px 130px}
+ header{border-bottom:3px solid var(--v);padding-bottom:12px;margin-bottom:8px}
+ h1{font-size:20px;margin:0 0 4px;color:var(--v)}
+ .sub{color:var(--g);font-size:14px}
+ .ayuda{background:var(--c);border-left:4px solid var(--v);padding:12px 14px;
+   border-radius:0 6px 6px 0;margin:16px 0;font-size:14.5px}
+ ul{list-style:none;padding:0;margin:0}
+ li{border-bottom:1px solid var(--l);padding:9px 4px;display:flex;
+    align-items:center;gap:12px}
+ li.cab{background:var(--c);font-weight:700;font-size:13px;letter-spacing:.04em;
+   color:var(--v);text-transform:uppercase;padding:9px 10px;border-bottom:2px solid var(--v);
+   display:block}
+ li.cab .hr{font-weight:500;color:var(--g);text-transform:none;letter-spacing:0}
+ .nom{flex:1;font-size:15.5px;min-width:0}
+ input.d{width:72px;flex:0 0 auto;font:inherit;font-size:19px;font-weight:700;
+   text-align:center;padding:9px 4px;border-radius:10px;
+   border:1.5px solid var(--l);background:var(--bg);color:var(--t)}
+ input.d:focus{outline:none;border-color:var(--v)}
+ input.d.repe{border-color:var(--mal);color:var(--mal);background:rgba(179,38,30,.07)}
+ .barra{position:fixed;left:0;right:0;bottom:0;background:var(--bg);
+   border-top:1px solid var(--l);padding:12px 16px;display:flex;gap:10px;
+   align-items:center;max-width:560px;margin:0 auto}
+ .cuenta{flex:1;font-size:13.5px;color:var(--g);line-height:1.35}
+ .cuenta b{color:var(--mal)}
+ button.acc{background:var(--v);color:#fff;border:0;border-radius:8px;
+   padding:13px 20px;font-size:16px;font-weight:600;cursor:pointer}
+ button.acc.sec2{background:transparent;color:var(--v);border:1px solid var(--v);padding:13px 14px}
+</style></head><body><div class="w">
+<div id="app">
+  <header><h1>Dorsales</h1><div class="sub">Club Deportivo Kolbe</div></header>
+  <div class="ayuda">
+    <strong>&iquest;Esperabas ver tu lista de jugadores?</strong><br><br>
+    Entonces tu m&oacute;vil est&aacute; <em>ense&ntilde;ando</em> este archivo en vez de abrirlo.
+    Pulsa el bot&oacute;n de compartir y elige <strong>Safari</strong> o <strong>Chrome</strong>.<br><br>
+    Y si has llegado por tu cuenta, sin que el club te haya mandado nada: esta p&aacute;gina
+    <strong>no guarda ning&uacute;n nombre</strong>, ni aqu&iacute; ni en ning&uacute;n servidor.
+  </div>
+</div>
+<script>
+const TEL="34676578734", DATOS=null;
+const MESES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO',
+             'JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+const NL=String.fromCharCode(10);
+function mesHoy(){const d=new Date();return MESES[d.getMonth()]+' '+d.getFullYear()}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+
+// \u2500\u2500 Descompresor deflate crudo (RFC 1951) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// Escrito a mano en vez de usar DecompressionStream, que no existe en
+// navegadores anteriores a 2023: un entrenador con un movil viejo se quedaria
+// sin abrir su lista. Comprobado el 07-10-2026 contra los 16 grupos reales.
+function inflarCrudo(src){
+ var pos=0,bp=0,out=[],
+  LB=[3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258],
+  LE=[0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0],
+  DB=[1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577],
+  DE=[0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13],
+  CLO=[16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15],fL=null,fD=null;
+ function gb(){var b=(src[pos]>>bp)&1;if(++bp==8){bp=0;pos++}return b}
+ function gn(n){var v=0;for(var i=0;i<n;i++)v|=gb()<<i;return v}
+ function arbol(lens){
+  var cnt=[],offs=[],sym=[],i;
+  for(i=0;i<16;i++){cnt[i]=0;offs[i]=0}
+  for(i=0;i<lens.length;i++)cnt[lens[i]]++;
+  cnt[0]=0;
+  for(i=1;i<16;i++)offs[i]=offs[i-1]+cnt[i-1];
+  for(i=0;i<lens.length;i++)if(lens[i])sym[offs[lens[i]]++]=i;
+  return {c:cnt,s:sym};
+ }
+ function dec(t){
+  var code=0,first=0,idx=0,len=1,c;
+  for(;;){
+   code|=gb(); c=t.c[len];
+   if(code-first<c) return t.s[idx+(code-first)];
+   idx+=c; first=(first+c)<<1; code<<=1;
+   if(++len>15) throw new Error('codigo');
+  }
+ }
+ for(;;){
+  var ultimo=gb(), tipo=gn(2), L, D, i, r, s;
+  if(tipo==0){                                   // bloque sin comprimir
+   if(bp){bp=0;pos++}
+   var n=src[pos]|(src[pos+1]<<8); pos+=4;
+   for(i=0;i<n;i++) out.push(src[pos++]);
+  }else{
+   if(tipo==1){                                  // Huffman fijo
+    if(!fL){ var l=[],k=0,d5=[];
+     for(;k<144;k++)l[k]=8; for(;k<256;k++)l[k]=9;
+     for(;k<280;k++)l[k]=7; for(;k<288;k++)l[k]=8;
+     for(k=0;k<30;k++)d5[k]=5;
+     fL=arbol(l); fD=arbol(d5);
+    }
+    L=fL; D=fD;
+   }else if(tipo==2){                            // Huffman dinamico
+    var hlit=gn(5)+257, hdist=gn(5)+1, hclen=gn(4)+4, cl=[];
+    for(i=0;i<19;i++)cl[i]=0;
+    for(i=0;i<hclen;i++)cl[CLO[i]]=gn(3);
+    var clt=arbol(cl), lens=[];
+    while(lens.length<hlit+hdist){
+     s=dec(clt);
+     if(s<16) lens.push(s);
+     else if(s==16){var p=lens[lens.length-1]; r=gn(2)+3; while(r--)lens.push(p)}
+     else if(s==17){r=gn(3)+3;  while(r--)lens.push(0)}
+     else          {r=gn(7)+11; while(r--)lens.push(0)}
+    }
+    L=arbol(lens.slice(0,hlit)); D=arbol(lens.slice(hlit));
+   }else throw new Error('bloque');
+   for(;;){
+    s=dec(L);
+    if(s==256) break;
+    if(s<256) out.push(s);
+    else{ s-=257;
+     var largo=LB[s]+gn(LE[s]), ds=dec(D), dist=DB[ds]+gn(DE[ds]), ini=out.length-dist;
+     for(i=0;i<largo;i++) out.push(out[ini+i]);
+    }
+   }
+  }
+  if(ultimo) break;
+ }
+ return new Uint8Array(out);
+}
+
+// Lo que va despues de # NUNCA se envia al servidor: se queda en el navegador.
+// Comprobado el 09-08-2026 con un servidor que registraba todo: solo vio GET /.
+function leerEnlace(){
+  var h=location.hash.slice(1);
+  if(!h) return null;
+  try{
+    var comprimido = h.charAt(0)==='z';
+    if(comprimido) h=h.slice(1);
+    h=h.replace(/-/g,'+').replace(/_/g,'/');
+    while(h.length%4) h+='=';
+    var bytes=Uint8Array.from(atob(h),function(c){return c.charCodeAt(0)});
+    if(!comprimido)                              // enlaces de antes del 07-10-2026
+      return JSON.parse(new TextDecoder().decode(bytes));
+
+    var t=new TextDecoder().decode(inflarCrudo(bytes)).split('\x1f'),
+        gs=[],hs=[],a=[];
+    t[2].split('\x1e').forEach(function(x){
+      var p=x.split('\x1d'); gs.push(p[0]); hs.push(p[1]||'');
+    });
+    t[3].split('\x1e').forEach(function(bloque,i){
+      if(bloque==='') return;
+      bloque.split('\n').forEach(function(n){
+        a.push(gs.length>1 ? {n:n,s:i} : {n:n});
+      });
+    });
+    return {g:t[0]||gs[0], h:gs.length>1?'':hs[0], c:t[1], gs:gs, hs:hs, a:a};
+  }catch(e){ return null; }
+}
+
+
+const D = DATOS || leerEnlace();
+if(D){
+  const VARIOS = D.a.some(x=>x.s!==undefined);
+  const nomGrupo = i => (D.gs && D.gs[i]!==undefined) ? D.gs[i] : i;
+  const grupoDe = x => (x.s===undefined) ? 0 : x.s;
+
+  const sub=[D.c?'curso '+D.c:'', D.h||'',
+             VARIOS?(D.gs||[]).length+' equipos':'', D.a.length+' jugadores']
+            .filter(Boolean).join(' \u00b7 ');
+
+  document.getElementById('app').innerHTML=
+    '<header><h1>'+esc(D.g)+'</h1><div class="sub">'+esc(sub)+'</div></header>'
+   +'<div class="ayuda">Escribe el <strong>dorsal</strong> de cada jugador.<br>'
+   +'Si alguno todavia no tiene numero, dejalo en blanco: se manda igual y el club lo completa.<br><br>'
+   +'Se va guardando en este movil segun lo escribes, asi que puedes dejarlo a medias y seguir luego.'
+   +'<br><br>Al terminar pulsa <strong>Enviar</strong> y se abrira WhatsApp con la lista escrita.</div>'
+   +'<ul>'+D.a.map(function(x,i){
+      var cab='';
+      if(x.s!==undefined && (i===0 || D.a[i-1].s!==x.s)){
+        var h=(D.hs && D.hs[x.s]) ? ' <span class="hr">'+esc(D.hs[x.s])+'</span>' : '';
+        cab='<li class="cab">'+esc(nomGrupo(x.s))+h+'</li>';
+      }
+      return cab+'<li><span class="nom">'+esc(x.n)+'</span>'
+       +'<input class="d" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" '
+       +'data-i="'+i+'" aria-label="Dorsal de '+esc(x.n)+'"></li>';
+     }).join('')+'</ul>'
+   +'<div class="barra"><div class="cuenta" id="cuenta"></div>'
+   +'<button class="acc sec2" id="bcopiar">Copiar</button>'
+   +'<button class="acc" id="benviar">Enviar</button></div>';
+
+  // Lo escrito se guarda en este movil y solo aqui: rellenar 17 dorsales no se hace
+  // de una sentada, y una llamada entrante no puede costarle el trabajo hecho.
+  const LLAVE='dorsales:'+(location.hash||'').slice(1,40);
+  let guardado={};
+  try{ guardado=JSON.parse(localStorage.getItem(LLAVE)||'{}'); }catch(e){ guardado={}; }
+
+  const campos=[].slice.call(document.querySelectorAll('input.d'));
+  campos.forEach(function(c){
+    const i=c.dataset.i;
+    if(guardado[i]) c.value=guardado[i];
+    c.addEventListener('input', function(){
+      c.value=c.value.replace(/[^0-9]/g,'');
+      revisar();
+    });
+  });
+
+  function valores(){
+    const v={};
+    campos.forEach(function(c){ if(c.value) v[c.dataset.i]=c.value; });
+    return v;
+  }
+
+  // Un dorsal repetido solo es un error DENTRO del mismo equipo: dos equipos
+  // distintos pueden tener los dos un 7.
+  function repetidos(){
+    const porGrupo={}, malos={};
+    campos.forEach(function(c){
+      if(!c.value) return;
+      const g=grupoDe(D.a[c.dataset.i]);
+      porGrupo[g]=porGrupo[g]||{};
+      (porGrupo[g][c.value]=porGrupo[g][c.value]||[]).push(c);
+    });
+    let n=0;
+    Object.keys(porGrupo).forEach(function(g){
+      Object.keys(porGrupo[g]).forEach(function(num){
+        if(porGrupo[g][num].length>1){
+          n++;
+          porGrupo[g][num].forEach(function(c){ malos[c.dataset.i]=true; });
+        }
+      });
+    });
+    return {cuantos:n, cuales:malos};
+  }
+
+  function revisar(){
+    const v=valores(), r=repetidos();
+    campos.forEach(function(c){ c.classList.toggle('repe', !!r.cuales[c.dataset.i]); });
+    const puestos=Object.keys(v).length;
+    let t=puestos+' de '+D.a.length+' puestos';
+    if(r.cuantos) t+=' \u00b7 <b>'+r.cuantos+' repetido'+(r.cuantos>1?'s':'')+'</b>';
+    document.getElementById('cuenta').innerHTML=t;
+    try{ localStorage.setItem(LLAVE, JSON.stringify(v)); }catch(e){}
+  }
+
+  function texto(){
+    const v=valores(), r=repetidos();
+    let t='DORSALES '+mesHoy()+' \u2014 '+D.g+NL;
+    const grupos=(D.gs&&D.gs.length)?D.gs:[D.g];
+    grupos.forEach(function(g,gi){
+      const dentro=D.a.map(function(x,i){return {x:x,i:i};})
+                      .filter(function(p){ return grupoDe(p.x)===gi; });
+      if(!dentro.length) return;
+      if(grupos.length>1) t+=NL+'== '+g+' ==';
+      const con=dentro.filter(function(p){ return v[p.i]; })
+                      .sort(function(a,b){ return (+v[a.i])-(+v[b.i]); });
+      const sin=dentro.filter(function(p){ return !v[p.i]; });
+      t+=NL;
+      con.forEach(function(p){ t+=v[p.i]+' \u00b7 '+p.x.n+NL; });
+      if(sin.length){
+        t+=NL+'SIN DORSAL ('+sin.length+'):'+NL;
+        sin.forEach(function(p){ t+='\u00b7 '+p.x.n+NL; });
+      }
+    });
+    if(r.cuantos) t+=NL+'\u26a0\ufe0f OJO: hay '+r.cuantos+' dorsal(es) repetido(s) en el mismo equipo.'+NL;
+    return t;
+  }
+
+  document.getElementById('benviar').onclick=function(){
+    window.open('https://wa.me/'+TEL+'?text='+encodeURIComponent(texto()),'_blank');
+  };
+  document.getElementById('bcopiar').onclick=function(){
+    navigator.clipboard.writeText(texto()).then(function(){ alert('Copiado.'); })
+      .catch(function(){ prompt('Copia este texto:', texto()); });
+  };
+  revisar();
+}
+</script>
+</div></body></html>
