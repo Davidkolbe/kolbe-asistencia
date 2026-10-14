@@ -36,6 +36,11 @@
    text-align:center;padding:9px 4px;border-radius:10px;
    border:1.5px solid var(--l);background:var(--bg);color:var(--t)}
  input.d:focus{outline:none;border-color:var(--v)}
+ select.tl{width:78px;flex:0 0 auto;font:inherit;font-size:14px;text-align:center;
+   padding:10px 2px;border-radius:10px;-webkit-appearance:none;appearance:none;
+   border:1.5px solid var(--l);background:var(--bg);color:var(--g)}
+ select.tl:focus{outline:none;border-color:var(--v)}
+ select.tl.puesta{color:var(--t);font-weight:700;font-size:15px;border-color:var(--v)}
  input.d.repe{border-color:var(--mal);color:var(--mal);background:rgba(179,38,30,.07)}
  .barra{position:fixed;left:0;right:0;bottom:0;background:var(--bg);
    border-top:1px solid var(--l);padding:12px 16px;display:flex;gap:10px;
@@ -179,8 +184,19 @@ if(D){
   // Alevin e infantil de futbol 7 se parten en dos equipos, Verde y Blanco. Se sabe
   // por el nombre que viaja dentro del enlace, asi que los enlaces ya mandados
   // estrenan los botones sin tener que reenviar nada.
-  const AB = /ALEV[I\u00cd]N|INFANTIL/i.test(D.g||'');
+  //
+  // Pero si el nombre YA dice de que equipo es \u2014\u00abVoleibol INFANTIL VERDE\u00bb\u2014 no hay
+  // nada que repartir: esos grupos vienen partidos de antes y los botones solo
+  // estorban. 14-10-2026.
+  const AB = /ALEV[I\u00cd]N|INFANTIL/i.test(D.g||'') && !/VERDE|BLANCO/i.test(D.g||'');
   const EQUIPOS = [['v','Verde'], ['b','Blanco']];
+
+  // La talla de camiseta, solo en voleibol (lo pidio David el 14-10-2026). Va en
+  // TODAS las filas, no solo en las que se quedan sin dorsal: ese mismo dia Sergio
+  // y Ginebra contestaron que a 10 jugadoras CON numero la camiseta no les vale, y
+  // a 5 les falta el numero. Reservarla a los huecos habria cogido 5 casos de 15.
+  const CAMISETA = /VOLEIBOL|VOLEY/i.test(D.g||'');
+  const TALLAS = ['6','8','10','12','14','16','XS','S','M','L','XL'];
 
   const sub=[D.c?'curso '+D.c:'', D.h||'',
              VARIOS?(D.gs||[]).length+' grupos':'', D.a.length+' jugadores']
@@ -198,9 +214,13 @@ if(D){
       +'<br><br>Se va guardando en este movil segun lo escribes, asi que puedes dejarlo a medias y seguir luego.'
       +'<br><br>Al terminar pulsa <strong>Enviar</strong> y se abrira WhatsApp con la lista escrita.';
 
+  const ayudaTalla = '<br><br><strong>Y la talla de camiseta:</strong> ponsela a quien '
+    +'<strong>necesite una</strong> \u2014porque no tiene o porque la suya no le vale\u2014. '
+    +'A quien ya tenga camiseta y le valga, dejala sin tocar.';
+
   document.getElementById('app').innerHTML=
     '<header><h1>'+esc(D.g)+'</h1><div class="sub">'+esc(sub)+'</div></header>'
-   +'<div class="ayuda">'+ayuda+'</div>'
+   +'<div class="ayuda">'+ayuda+(CAMISETA?ayudaTalla:'')+'</div>'
    +'<ul>'+D.a.map(function(x,i){
       var cab='';
       if(x.s!==undefined && (i===0 || D.a[i-1].s!==x.s)){
@@ -210,10 +230,14 @@ if(D){
       var botones = AB ? '<div class="eq">'+EQUIPOS.map(function(e){
             return '<button type="button" class="beq" data-i="'+i+'" data-e="'+e[0]+'">'+e[1]+'</button>';
           }).join('')+'</div>' : '';
+      var talla = CAMISETA ? '<select class="tl" data-i="'+i+'" aria-label="Talla de '
+            +esc(x.n)+'"><option value="">Talla</option>'
+            +TALLAS.map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join('')
+            +'</select>' : '';
       return cab+'<li class="'+(AB?'conab sinequipo':'')+'" data-fila="'+i+'">'
        +'<span class="nom">'+esc(x.n)+'</span>'
        +'<input class="d" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" '
-       +'data-i="'+i+'" aria-label="Dorsal de '+esc(x.n)+'">'+botones+'</li>';
+       +'data-i="'+i+'" aria-label="Dorsal de '+esc(x.n)+'">'+talla+botones+'</li>';
      }).join('')+'</ul>'
    +'<div class="barra"><div class="cuenta" id="cuenta"></div>'
    +'<button class="acc sec2" id="bcopiar">Copiar</button>'
@@ -234,6 +258,22 @@ if(D){
       c.value=c.value.replace(/[^0-9]/g,'');
       revisar();
     });
+  });
+
+  // Talla de camiseta. Se guarda igual que el dorsal, en el mismo sitio y con la
+  // misma llave, para que quien ya habia rellenado los dorsales no pierda nada al
+  // volver a abrir el enlace y solo tenga que anadir las tallas.
+  const tallas={};
+  const selectores=[].slice.call(document.querySelectorAll('select.tl'));
+  selectores.forEach(function(s){
+    const i=s.dataset.i;
+    if(guardado[i] && guardado[i].t){ s.value=guardado[i].t; tallas[i]=guardado[i].t; }
+    s.addEventListener('change', function(){
+      tallas[i]=s.value||null;
+      s.classList.toggle('puesta', !!s.value);
+      revisar();
+    });
+    s.classList.toggle('puesta', !!s.value);
   });
 
   // Equipo de cada jugador: 'v' o 'b'. Volver a pulsar el mismo boton lo quita.
@@ -302,13 +342,30 @@ if(D){
     } else {
       t=Object.keys(v).length+' de '+D.a.length+' puestos';
     }
+    if(CAMISETA){
+      const nt=Object.keys(tallas).filter(function(i){return tallas[i];}).length;
+      if(nt) t+=' \u00b7 '+nt+' camiseta'+(nt>1?'s':'');
+    }
     if(r.cuantos) t+=' \u00b7 <b>'+r.cuantos+' repetido'+(r.cuantos>1?'s':'')+'</b>';
     document.getElementById('cuenta').innerHTML=t;
     const estado={};
     D.a.forEach(function(_,i){
-      if(v[i] || equipo[i]) estado[i]={d:v[i]||'', e:equipo[i]||''};
+      if(v[i] || equipo[i] || tallas[i])
+        estado[i]={d:v[i]||'', e:equipo[i]||'', t:tallas[i]||''};
     });
     try{ localStorage.setItem(LLAVE, JSON.stringify(estado)); }catch(e){}
+  }
+
+  // Las camisetas van en su propio bloque al final, no pegadas al nombre: al club
+  // le llega una lista de pedido que se lee de un tiron, sin rebuscar.
+  function bloqueCamisetas(){
+    if(!CAMISETA) return '';
+    const piden=D.a.map(function(x,i){return {x:x,i:i};})
+                   .filter(function(p){ return tallas[p.i]; });
+    if(!piden.length) return '';
+    let t=NL+'CAMISETAS QUE HACEN FALTA ('+piden.length+'):'+NL;
+    piden.forEach(function(p){ t+='Talla '+tallas[p.i]+' \u00b7 '+p.x.n+NL; });
+    return t;
   }
 
   function texto(){
@@ -335,7 +392,8 @@ if(D){
         t+=NL+'SIN EQUIPO ('+huerfanos.length+'):'+NL;
         huerfanos.forEach(function(p){ t+='\u00b7 '+p.x.n+NL; });
       }
-      if(r.cuantos) t+=NL+'\u26a0\ufe0f OJO: hay '+r.cuantos+' dorsal(es) repetido(s) dentro del mismo equipo.'+NL;
+      t+=bloqueCamisetas();
+      if(r.cuantos) t+=NL+'OJO: hay '+r.cuantos+' dorsal(es) repetido(s) dentro del mismo equipo.'+NL;
       return t;
     }
 
@@ -355,7 +413,8 @@ if(D){
         sin.forEach(function(p){ t+='\u00b7 '+p.x.n+NL; });
       }
     });
-    if(r.cuantos) t+=NL+'\u26a0\ufe0f OJO: hay '+r.cuantos+' dorsal(es) repetido(s) en el mismo equipo.'+NL;
+    t+=bloqueCamisetas();
+    if(r.cuantos) t+=NL+'OJO: hay '+r.cuantos+' dorsal(es) repetido(s) en el mismo equipo.'+NL;
     return t;
   }
 
