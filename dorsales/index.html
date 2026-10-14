@@ -196,7 +196,8 @@ if(D){
   // y Ginebra contestaron que a 10 jugadoras CON numero la camiseta no les vale, y
   // a 5 les falta el numero. Reservarla a los huecos habria cogido 5 casos de 15.
   const CAMISETA = /VOLEIBOL|VOLEY/i.test(D.g||'');
-  const TALLAS = ['6','8','10','12','14','16','XS','S','M','L','XL'];
+  // Las tallas que usa el club, dictadas por David el 14-10-2026.
+  const TALLAS = ['6','8','10','12','14','S','M','L','XL'];
 
   const sub=[D.c?'curso '+D.c:'', D.h||'',
              VARIOS?(D.gs||[]).length+' grupos':'', D.a.length+' jugadores']
