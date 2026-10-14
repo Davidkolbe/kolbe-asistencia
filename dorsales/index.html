@@ -22,6 +22,15 @@
    color:var(--v);text-transform:uppercase;padding:9px 10px;border-bottom:2px solid var(--v);
    display:block}
  li.cab .hr{font-weight:500;color:var(--g);text-transform:none;letter-spacing:0}
+ li.conab{flex-wrap:wrap}
+ .eq{display:flex;gap:6px;flex:1 1 100%;margin-top:2px}
+ .eq button{flex:1;border:1.5px solid var(--l);background:transparent;color:var(--g);
+   border-radius:18px;padding:7px 4px;font-size:13.5px;font-weight:700;cursor:pointer;
+   -webkit-tap-highlight-color:transparent}
+ .eq button.on-v{background:#0a7d32;border-color:#0a7d32;color:#fff}
+ .eq button.on-b{background:#f0f0f0;border-color:#9a9a9a;color:#1a1a1a}
+ @media(prefers-color-scheme:dark){.eq button.on-b{background:#e8e8e8;border-color:#bbb;color:#111}}
+ li.sinequipo input.d{opacity:.45}
  .nom{flex:1;font-size:15.5px;min-width:0}
  input.d{width:72px;flex:0 0 auto;font:inherit;font-size:19px;font-weight:700;
    text-align:center;padding:9px 4px;border-radius:10px;
@@ -167,25 +176,44 @@ if(D){
   const nomGrupo = i => (D.gs && D.gs[i]!==undefined) ? D.gs[i] : i;
   const grupoDe = x => (x.s===undefined) ? 0 : x.s;
 
+  // Alevin e infantil de futbol 7 se parten en dos equipos, Verde y Blanco. Se sabe
+  // por el nombre que viaja dentro del enlace, asi que los enlaces ya mandados
+  // estrenan los botones sin tener que reenviar nada.
+  const AB = /ALEV[I\u00cd]N|INFANTIL/i.test(D.g||'');
+  const EQUIPOS = [['v','Verde'], ['b','Blanco']];
+
   const sub=[D.c?'curso '+D.c:'', D.h||'',
-             VARIOS?(D.gs||[]).length+' equipos':'', D.a.length+' jugadores']
+             VARIOS?(D.gs||[]).length+' grupos':'', D.a.length+' jugadores']
             .filter(Boolean).join(' \u00b7 ');
+
+  const ayuda = AB
+    ? 'Reparte a los jugadores entre <strong>Verde</strong> y <strong>Blanco</strong>, '
+      +'y ponles el <strong>dorsal</strong>.<br>'
+      +'El numero puede repetirse entre los dos equipos; dentro del mismo, no (te aviso en rojo).'
+      +'<br><br>Si alguno aun no tiene equipo o numero, dejalo en blanco: se manda igual.'
+      +'<br><br>Se va guardando en este movil, asi que puedes dejarlo a medias y seguir luego.'
+      +'<br><br>Al terminar pulsa <strong>Enviar</strong>.'
+    : 'Escribe el <strong>dorsal</strong> de cada jugador.<br>'
+      +'Si alguno todavia no tiene numero, dejalo en blanco: se manda igual y el club lo completa.'
+      +'<br><br>Se va guardando en este movil segun lo escribes, asi que puedes dejarlo a medias y seguir luego.'
+      +'<br><br>Al terminar pulsa <strong>Enviar</strong> y se abrira WhatsApp con la lista escrita.';
 
   document.getElementById('app').innerHTML=
     '<header><h1>'+esc(D.g)+'</h1><div class="sub">'+esc(sub)+'</div></header>'
-   +'<div class="ayuda">Escribe el <strong>dorsal</strong> de cada jugador.<br>'
-   +'Si alguno todavia no tiene numero, dejalo en blanco: se manda igual y el club lo completa.<br><br>'
-   +'Se va guardando en este movil segun lo escribes, asi que puedes dejarlo a medias y seguir luego.'
-   +'<br><br>Al terminar pulsa <strong>Enviar</strong> y se abrira WhatsApp con la lista escrita.</div>'
+   +'<div class="ayuda">'+ayuda+'</div>'
    +'<ul>'+D.a.map(function(x,i){
       var cab='';
       if(x.s!==undefined && (i===0 || D.a[i-1].s!==x.s)){
         var h=(D.hs && D.hs[x.s]) ? ' <span class="hr">'+esc(D.hs[x.s])+'</span>' : '';
         cab='<li class="cab">'+esc(nomGrupo(x.s))+h+'</li>';
       }
-      return cab+'<li><span class="nom">'+esc(x.n)+'</span>'
+      var botones = AB ? '<div class="eq">'+EQUIPOS.map(function(e){
+            return '<button type="button" class="beq" data-i="'+i+'" data-e="'+e[0]+'">'+e[1]+'</button>';
+          }).join('')+'</div>' : '';
+      return cab+'<li class="'+(AB?'conab sinequipo':'')+'" data-fila="'+i+'">'
+       +'<span class="nom">'+esc(x.n)+'</span>'
        +'<input class="d" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" '
-       +'data-i="'+i+'" aria-label="Dorsal de '+esc(x.n)+'"></li>';
+       +'data-i="'+i+'" aria-label="Dorsal de '+esc(x.n)+'">'+botones+'</li>';
      }).join('')+'</ul>'
    +'<div class="barra"><div class="cuenta" id="cuenta"></div>'
    +'<button class="acc sec2" id="bcopiar">Copiar</button>'
@@ -200,12 +228,36 @@ if(D){
   const campos=[].slice.call(document.querySelectorAll('input.d'));
   campos.forEach(function(c){
     const i=c.dataset.i;
-    if(guardado[i]) c.value=guardado[i];
+    if(guardado[i] && guardado[i].d) c.value=guardado[i].d;
+    else if(typeof guardado[i]==='string') c.value=guardado[i];   // formato anterior
     c.addEventListener('input', function(){
       c.value=c.value.replace(/[^0-9]/g,'');
       revisar();
     });
   });
+
+  // Equipo de cada jugador: 'v' o 'b'. Volver a pulsar el mismo boton lo quita.
+  const equipo={};
+  [].slice.call(document.querySelectorAll('.beq')).forEach(function(b){
+    const i=b.dataset.i;
+    if(guardado[i] && guardado[i].e) equipo[i]=guardado[i].e;
+    b.addEventListener('click', function(){
+      equipo[i] = (equipo[i]===b.dataset.e) ? null : b.dataset.e;
+      pintarEquipos();
+      revisar();
+    });
+  });
+
+  function pintarEquipos(){
+    [].slice.call(document.querySelectorAll('.beq')).forEach(function(b){
+      const puesto = equipo[b.dataset.i]===b.dataset.e;
+      b.classList.toggle('on-v', puesto && b.dataset.e==='v');
+      b.classList.toggle('on-b', puesto && b.dataset.e==='b');
+    });
+    [].slice.call(document.querySelectorAll('li[data-fila]')).forEach(function(li){
+      if(AB) li.classList.toggle('sinequipo', !equipo[li.dataset.fila]);
+    });
+  }
 
   function valores(){
     const v={};
@@ -213,22 +265,24 @@ if(D){
     return v;
   }
 
-  // Un dorsal repetido solo es un error DENTRO del mismo equipo: dos equipos
-  // distintos pueden tener los dos un 7.
+  // Un dorsal repetido solo es un error dentro del MISMO equipo. Con Verde y Blanco
+  // se compara por equipo \u2014los dos pueden llevar un 7\u2014; sin ellos, por grupo.
   function repetidos(){
-    const porGrupo={}, malos={};
+    const cajon={}, malos={};
     campos.forEach(function(c){
       if(!c.value) return;
-      const g=grupoDe(D.a[c.dataset.i]);
-      porGrupo[g]=porGrupo[g]||{};
-      (porGrupo[g][c.value]=porGrupo[g][c.value]||[]).push(c);
+      const i=c.dataset.i;
+      const k = AB ? (equipo[i]||'?') : grupoDe(D.a[i]);
+      if(AB && !equipo[i]) return;        // sin equipo aun: no se puede juzgar
+      cajon[k]=cajon[k]||{};
+      (cajon[k][c.value]=cajon[k][c.value]||[]).push(c);
     });
     let n=0;
-    Object.keys(porGrupo).forEach(function(g){
-      Object.keys(porGrupo[g]).forEach(function(num){
-        if(porGrupo[g][num].length>1){
+    Object.keys(cajon).forEach(function(k){
+      Object.keys(cajon[k]).forEach(function(num){
+        if(cajon[k][num].length>1){
           n++;
-          porGrupo[g][num].forEach(function(c){ malos[c.dataset.i]=true; });
+          cajon[k][num].forEach(function(c){ malos[c.dataset.i]=true; });
         }
       });
     });
@@ -238,16 +292,53 @@ if(D){
   function revisar(){
     const v=valores(), r=repetidos();
     campos.forEach(function(c){ c.classList.toggle('repe', !!r.cuales[c.dataset.i]); });
-    const puestos=Object.keys(v).length;
-    let t=puestos+' de '+D.a.length+' puestos';
+    let t;
+    if(AB){
+      const nv=Object.keys(equipo).filter(function(i){return equipo[i]==='v';}).length;
+      const nb=Object.keys(equipo).filter(function(i){return equipo[i]==='b';}).length;
+      const sin=D.a.length-nv-nb;
+      t='Verde '+nv+' \u00b7 Blanco '+nb+(sin?' \u00b7 '+sin+' sin equipo':'')
+        +' \u00b7 '+Object.keys(v).length+' dorsales';
+    } else {
+      t=Object.keys(v).length+' de '+D.a.length+' puestos';
+    }
     if(r.cuantos) t+=' \u00b7 <b>'+r.cuantos+' repetido'+(r.cuantos>1?'s':'')+'</b>';
     document.getElementById('cuenta').innerHTML=t;
-    try{ localStorage.setItem(LLAVE, JSON.stringify(v)); }catch(e){}
+    const estado={};
+    D.a.forEach(function(_,i){
+      if(v[i] || equipo[i]) estado[i]={d:v[i]||'', e:equipo[i]||''};
+    });
+    try{ localStorage.setItem(LLAVE, JSON.stringify(estado)); }catch(e){}
   }
 
   function texto(){
     const v=valores(), r=repetidos();
     let t='DORSALES '+mesHoy()+' \u2014 '+D.g+NL;
+
+    // Con Verde y Blanco el reparto manda sobre el grupo de entrenamiento: al club
+    // le interesa quien juega en cada equipo, no de que clase sale.
+    if(AB){
+      EQUIPOS.forEach(function(e){
+        const dentro=D.a.map(function(x,i){return {x:x,i:i};})
+                        .filter(function(p){ return equipo[p.i]===e[0]; });
+        t+=NL+'== '+e[1].toUpperCase()+' ('+dentro.length+') =='+NL;
+        if(!dentro.length){ t+='(nadie)'+NL; return; }
+        const con=dentro.filter(function(p){ return v[p.i]; })
+                        .sort(function(a,b){ return (+v[a.i])-(+v[b.i]); });
+        const sin=dentro.filter(function(p){ return !v[p.i]; });
+        con.forEach(function(p){ t+=v[p.i]+' \u00b7 '+p.x.n+NL; });
+        sin.forEach(function(p){ t+='-- \u00b7 '+p.x.n+NL; });
+      });
+      const huerfanos=D.a.map(function(x,i){return {x:x,i:i};})
+                         .filter(function(p){ return !equipo[p.i]; });
+      if(huerfanos.length){
+        t+=NL+'SIN EQUIPO ('+huerfanos.length+'):'+NL;
+        huerfanos.forEach(function(p){ t+='\u00b7 '+p.x.n+NL; });
+      }
+      if(r.cuantos) t+=NL+'\u26a0\ufe0f OJO: hay '+r.cuantos+' dorsal(es) repetido(s) dentro del mismo equipo.'+NL;
+      return t;
+    }
+
     const grupos=(D.gs&&D.gs.length)?D.gs:[D.g];
     grupos.forEach(function(g,gi){
       const dentro=D.a.map(function(x,i){return {x:x,i:i};})
@@ -275,6 +366,7 @@ if(D){
     navigator.clipboard.writeText(texto()).then(function(){ alert('Copiado.'); })
       .catch(function(){ prompt('Copia este texto:', texto()); });
   };
+  pintarEquipos();
   revisar();
 }
 </script>
