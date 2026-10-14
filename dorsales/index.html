@@ -41,6 +41,10 @@
    border:1.5px solid var(--l);background:var(--bg);color:var(--g)}
  select.tl:focus{outline:none;border-color:var(--v)}
  select.tl.puesta{color:var(--t);font-weight:700;font-size:15px;border-color:var(--v)}
+ select.tl.pide{border-color:#b06000;border-width:2px;color:#b06000;font-weight:700}
+ select.tl.pide.puesta{border-color:var(--v);color:var(--t)}
+ @media(prefers-color-scheme:dark){select.tl.pide{border-color:#e0a050;color:#e0a050}}
+ li.pide .nom:after{content:" F455";font-size:13px}
  input.d.repe{border-color:var(--mal);color:var(--mal);background:rgba(179,38,30,.07)}
  .barra{position:fixed;left:0;right:0;bottom:0;background:var(--bg);
    border-top:1px solid var(--l);padding:12px 16px;display:flex;gap:10px;
@@ -166,8 +170,11 @@ function leerEnlace(){
     });
     t[3].split('\x1e').forEach(function(bloque,i){
       if(bloque==='') return;
-      bloque.split('\n').forEach(function(n){
-        a.push(gs.length>1 ? {n:n,s:i} : {n:n});
+      bloque.split('\n').forEach(function(linea){
+        var p=linea.split('\x1d'), uno = gs.length>1 ? {n:p[0],s:i} : {n:p[0]};
+        if(p[1]) uno.d=p[1];       // dorsal que ya mando el entrenador
+        if(p[2]) uno.cam=1;        // y este necesita camiseta: hay que pedir talla
+        a.push(uno);
       });
     });
     return {g:t[0]||gs[0], h:gs.length>1?'':hs[0], c:t[1], gs:gs, hs:hs, a:a};
@@ -215,9 +222,16 @@ if(D){
       +'<br><br>Se va guardando en este movil segun lo escribes, asi que puedes dejarlo a medias y seguir luego.'
       +'<br><br>Al terminar pulsa <strong>Enviar</strong> y se abrira WhatsApp con la lista escrita.';
 
-  const ayudaTalla = '<br><br><strong>Y la talla de camiseta:</strong> ponsela a quien '
-    +'<strong>necesite una</strong> \u2014porque no tiene o porque la suya no le vale\u2014. '
-    +'A quien ya tenga camiseta y le valga, dejala sin tocar.';
+  // Si ya sabemos a quien hay que pedirle talla \u2014porque el propio entrenador nos lo
+  // dijo\u2014 se le marcan y se le dice cuantas son. Asi no repasa la lista entera.
+  const PIDEN = D.a.filter(function(x){ return x.cam; }).length;
+  const ayudaTalla = PIDEN
+    ? '<br><br><strong>Las ' + PIDEN + ' marcadas en naranja necesitan camiseta</strong> '
+      +'\u2014me dijiste que no la tienen o que no les vale\u2014. Elige su <strong>talla</strong> '
+      +'en el desplegable y ya esta. Si alguna mas necesita, ponsela tambien.'
+    : '<br><br><strong>Y la talla de camiseta:</strong> ponsela a quien '
+      +'<strong>necesite una</strong> \u2014porque no tiene o porque la suya no le vale\u2014. '
+      +'A quien ya tenga camiseta y le valga, dejala sin tocar.';
 
   document.getElementById('app').innerHTML=
     '<header><h1>'+esc(D.g)+'</h1><div class="sub">'+esc(sub)+'</div></header>'
@@ -231,11 +245,11 @@ if(D){
       var botones = AB ? '<div class="eq">'+EQUIPOS.map(function(e){
             return '<button type="button" class="beq" data-i="'+i+'" data-e="'+e[0]+'">'+e[1]+'</button>';
           }).join('')+'</div>' : '';
-      var talla = CAMISETA ? '<select class="tl" data-i="'+i+'" aria-label="Talla de '
-            +esc(x.n)+'"><option value="">Talla</option>'
+      var talla = CAMISETA ? '<select class="tl'+(x.cam?' pide':'')+'" data-i="'+i+'" '
+            +'aria-label="Talla de '+esc(x.n)+'"><option value="">Talla</option>'
             +TALLAS.map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join('')
             +'</select>' : '';
-      return cab+'<li class="'+(AB?'conab sinequipo':'')+'" data-fila="'+i+'">'
+      return cab+'<li class="'+(AB?'conab sinequipo':'')+(x.cam?' pide':'')+'" data-fila="'+i+'">'
        +'<span class="nom">'+esc(x.n)+'</span>'
        +'<input class="d" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" '
        +'data-i="'+i+'" aria-label="Dorsal de '+esc(x.n)+'">'+talla+botones+'</li>';
@@ -255,6 +269,7 @@ if(D){
     const i=c.dataset.i;
     if(guardado[i] && guardado[i].d) c.value=guardado[i].d;
     else if(typeof guardado[i]==='string') c.value=guardado[i];   // formato anterior
+    else if(D.a[i].d) c.value=D.a[i].d;   // el que ya nos mando el entrenador
     c.addEventListener('input', function(){
       c.value=c.value.replace(/[^0-9]/g,'');
       revisar();
@@ -345,7 +360,9 @@ if(D){
     }
     if(CAMISETA){
       const nt=Object.keys(tallas).filter(function(i){return tallas[i];}).length;
-      if(nt) t+=' \u00b7 '+nt+' camiseta'+(nt>1?'s':'');
+      const faltan=D.a.filter(function(x,i){ return x.cam && !tallas[i]; }).length;
+      if(faltan) t+=' \u00b7 <b>faltan '+faltan+' talla'+(faltan>1?'s':'')+'</b>';
+      else if(nt) t+=' \u00b7 '+nt+' camiseta'+(nt>1?'s':'');
     }
     if(r.cuantos) t+=' \u00b7 <b>'+r.cuantos+' repetido'+(r.cuantos>1?'s':'')+'</b>';
     document.getElementById('cuenta').innerHTML=t;
