@@ -32,6 +32,9 @@
  @media(prefers-color-scheme:dark){.eq button.on-b{background:#e8e8e8;border-color:#bbb;color:#111}}
  li.sinequipo input.d{opacity:.45}
  .nom{flex:1;font-size:15.5px;min-width:0}
+ .ahora{font-style:normal;font-size:12.5px;color:var(--g);background:var(--c);
+   border:1px solid var(--l);padding:1px 7px;border-radius:10px;margin-left:7px;
+   white-space:nowrap;display:inline-block}
  input.d{width:72px;flex:0 0 auto;font:inherit;font-size:19px;font-weight:700;
    text-align:center;padding:9px 4px;border-radius:10px;
    border:1.5px solid var(--l);background:var(--bg);color:var(--t)}
@@ -228,8 +231,10 @@ if(D){
   const PIDEN = D.a.filter(function(x){ return x.cam; }).length;
   const ayudaTalla = PIDEN
     ? '<br><br><strong>Las ' + PIDEN + ' marcadas en naranja necesitan camiseta</strong> '
-      +'\u2014me dijiste que no la tienen o que no les vale\u2014. Elige su <strong>talla</strong> '
-      +'en el desplegable y ya esta. Si alguna mas necesita, ponsela tambien.'
+      +'\u2014me dijiste que no la tienen o que no les vale\u2014. Elige su <strong>talla</strong>.'
+      +'<br><br>A esas les he <strong>dejado la casilla del numero en blanco a proposito</strong>: '
+      +'con la camiseta nueva puede cambiar. Al lado del nombre te dejo en gris el que '
+      +'llevan ahora, para que lo tengas. Si ya sabes el nuevo, escribelo; y si no, dejalo.'
     : '<br><br><strong>Y la talla de camiseta:</strong> ponsela a quien '
       +'<strong>necesite una</strong> \u2014porque no tiene o porque la suya no le vale\u2014. '
       +'A quien ya tenga camiseta y le valga, dejala sin tocar.';
@@ -251,7 +256,8 @@ if(D){
             +TALLAS.map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join('')
             +'</select>' : '';
       return cab+'<li class="'+(AB?'conab sinequipo':'')+(x.cam?' pide':'')+'" data-fila="'+i+'">'
-       +'<span class="nom">'+esc(x.n)+'</span>'
+       +'<span class="nom">'+esc(x.n)
+       +((x.cam && x.d) ? '<em class="ahora">ahora '+esc(x.d)+'</em>' : '')+'</span>'
        +'<input class="d" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" '
        +'data-i="'+i+'" aria-label="Dorsal de '+esc(x.n)+'">'+talla+botones+'</li>';
      }).join('')+'</ul>'
@@ -270,7 +276,9 @@ if(D){
     const i=c.dataset.i;
     if(guardado[i] && guardado[i].d) c.value=guardado[i].d;
     else if(typeof guardado[i]==='string') c.value=guardado[i];   // formato anterior
-    else if(D.a[i].d) c.value=D.a[i].d;   // el que ya nos mando el entrenador
+    // El que ya nos mando el entrenador, salvo si le cambia la camiseta: a esos el
+    // numero viejo se les ENSENA al lado del nombre, pero la casilla va vacia.
+    else if(D.a[i].d && !D.a[i].cam) c.value=D.a[i].d;
     c.addEventListener('input', function(){
       c.value=c.value.replace(/[^0-9]/g,'');
       revisar();
@@ -382,8 +390,13 @@ if(D){
     const piden=D.a.map(function(x,i){return {x:x,i:i};})
                    .filter(function(p){ return tallas[p.i]; });
     if(!piden.length) return '';
+    const v=valores();
     let t=NL+'CAMISETAS QUE HACEN FALTA ('+piden.length+'):'+NL;
-    piden.forEach(function(p){ t+='Talla '+tallas[p.i]+' \u00b7 '+p.x.n+NL; });
+    piden.forEach(function(p){
+      // El numero viejo va entre parentesis: es el que hay que retirar.
+      var nota = p.x.d ? ' (cambia la '+p.x.d+')' : ' (no tenia)';
+      t+='Talla '+tallas[p.i]+' \u00b7 '+p.x.n+(v[p.i] ? ' \u00b7 dorsal '+v[p.i] : '')+nota+NL;
+    });
     return t;
   }
 
