@@ -50,6 +50,11 @@
  li.pide{background:rgba(176,96,0,.06)}
  @media(prefers-color-scheme:dark){li.pide{background:rgba(224,160,80,.09)}}
  input.d.repe{border-color:var(--mal);color:var(--mal);background:rgba(179,38,30,.07)}
+ li.nueva{background:rgba(0,110,50,.06)}
+ li.nueva .ahora{color:var(--v);border-color:var(--v)}
+ .quitar{border:0;background:transparent;color:var(--g);font-size:15px;line-height:1;
+   padding:2px 7px;margin-left:4px;cursor:pointer}
+ button.mas{display:block;width:100%;margin-top:14px}
  .barra{position:fixed;left:0;right:0;bottom:0;background:var(--bg);
    border-top:1px solid var(--l);padding:12px 16px;display:flex;gap:10px;
    align-items:center;max-width:560px;margin:0 auto}
@@ -226,6 +231,10 @@ if(D){
       +'<br><br>Se va guardando en este movil segun lo escribes, asi que puedes dejarlo a medias y seguir luego.'
       +'<br><br>Al terminar pulsa <strong>Enviar</strong> y se abrira WhatsApp con la lista escrita.';
 
+  const ayudaMas = '<br><br><strong>Si falta alguna jugadora</strong>, pulsa '
+    +'<strong>+ Anadir jugadora</strong> al final de la lista y escribe su nombre. '
+    +'Me llegara marcada como NUEVA para darla de alta.';
+
   // Si ya sabemos a quien hay que pedirle talla \u2014porque el propio entrenador nos lo
   // dijo\u2014 se le marcan y se le dice cuantas son. Asi no repasa la lista entera.
   const PIDEN = D.a.filter(function(x){ return x.cam; }).length;
@@ -235,83 +244,138 @@ if(D){
       +'<br><br>A esas les he <strong>dejado la casilla del numero en blanco a proposito</strong>: '
       +'con la camiseta nueva puede cambiar. Al lado del nombre te dejo en gris el que '
       +'llevan ahora, para que lo tengas. Si ya sabes el nuevo, escribelo; y si no, dejalo.'
-    : '<br><br><strong>Y la talla de camiseta:</strong> ponsela a quien '
-      +'<strong>necesite una</strong> \u2014porque no tiene o porque la suya no le vale\u2014. '
+    : '<br><br><strong>Y la camiseta:</strong> a quien <strong>necesite una nueva</strong> '
+      +'\u2014porque no tiene o porque la suya no le vale\u2014 elige su <strong>talla</strong> en el '
+      +'desplegable. Eso es lo que me dice que hay que pedirsela. '
       +'A quien ya tenga camiseta y le valga, dejala sin tocar.';
 
-  document.getElementById('app').innerHTML=
-    '<header><h1>'+esc(D.g)+'</h1><div class="sub">'+esc(sub)+'</div></header>'
-   +'<div class="ayuda">'+ayuda+(CAMISETA?ayudaTalla:'')+'</div>'
-   +'<ul>'+D.a.map(function(x,i){
-      var cab='';
-      if(x.s!==undefined && (i===0 || D.a[i-1].s!==x.s)){
-        var h=(D.hs && D.hs[x.s]) ? ' <span class="hr">'+esc(D.hs[x.s])+'</span>' : '';
-        cab='<li class="cab">'+esc(nomGrupo(x.s))+h+'</li>';
-      }
-      var botones = AB ? '<div class="eq">'+EQUIPOS.map(function(e){
-            return '<button type="button" class="beq" data-i="'+i+'" data-e="'+e[0]+'">'+e[1]+'</button>';
-          }).join('')+'</div>' : '';
-      var talla = CAMISETA ? '<select class="tl'+(x.cam?' pide':'')+'" data-i="'+i+'" '
-            +'aria-label="Talla de '+esc(x.n)+'"><option value="">Talla</option>'
-            +TALLAS.map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join('')
-            +'</select>' : '';
-      return cab+'<li class="'+(AB?'conab sinequipo':'')+(x.cam?' pide':'')+'" data-fila="'+i+'">'
-       +'<span class="nom">'+esc(x.n)
-       +((x.cam && x.d) ? '<em class="ahora">ahora '+esc(x.d)+'</em>' : '')+'</span>'
-       +'<input class="d" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" '
-       +'data-i="'+i+'" aria-label="Dorsal de '+esc(x.n)+'">'+talla+botones+'</li>';
-     }).join('')+'</ul>'
-   +'<div class="barra"><div class="cuenta" id="cuenta"></div>'
-   +'<button class="acc sec2" id="bcopiar">Copiar</button>'
-   +'<button class="acc" id="benviar">Enviar</button></div>';
-
-  // Lo escrito se guarda en este movil y solo aqui: rellenar 17 dorsales no se hace
+  // Lo escrito se guarda en este movil y solo aqui: rellenar 24 dorsales no se hace
   // de una sentada, y una llamada entrante no puede costarle el trabajo hecho.
   const LLAVE='dorsales:'+(location.hash||'').slice(1,40);
   let guardado={};
   try{ guardado=JSON.parse(localStorage.getItem(LLAVE)||'{}'); }catch(e){ guardado={}; }
 
-  const campos=[].slice.call(document.querySelectorAll('input.d'));
-  campos.forEach(function(c){
-    const i=c.dataset.i;
-    if(guardado[i] && guardado[i].d) c.value=guardado[i].d;
-    else if(typeof guardado[i]==='string') c.value=guardado[i];   // formato anterior
-    // El que ya nos mando el entrenador, salvo si le cambia la camiseta: a esos el
-    // numero viejo se les ENSENA al lado del nombre, pero la casilla va vacia.
-    else if(D.a[i].d && !D.a[i].cam) c.value=D.a[i].d;
-    c.addEventListener('input', function(){
-      c.value=c.value.replace(/[^0-9]/g,'');
-      revisar();
-    });
+  // Jugadoras que el entrenador anade a mano porque no estan en el listado del
+  // colegio. Pedido por David el 15-10-2026. Se guardan con todo lo demas, en este
+  // movil, y salen en el mensaje marcadas como NUEVA para que el club las fiche.
+  let EXTRA = Array.isArray(guardado.__extra) ? guardado.__extra.slice() : [];
+  function LISTA(){
+    return D.a.concat(EXTRA.map(function(n){ return {n:n, nueva:1}; }));
+  }
+
+  // El estado vive aqui, no en el DOM: la lista se vuelve a pintar entera cada vez
+  // que se anade a alguien, y lo escrito tiene que sobrevivir a ese repintado.
+  const dorsal={}, tallas={}, equipo={};
+  LISTA().forEach(function(x,i){
+    const g=guardado[i];
+    if(typeof g==='string'){ dorsal[i]=g; return; }        // formato anterior
+    if(g && g.d) dorsal[i]=g.d;
+    // El dorsal que ya nos mando el entrenador, salvo si le cambia la camiseta: a
+    // esos el numero viejo se les ENSENA al lado del nombre, pero la casilla va vacia.
+    else if(x.d && !x.cam) dorsal[i]=x.d;
+    if(g && g.t) tallas[i]=g.t;
+    if(g && g.e) equipo[i]=g.e;
   });
 
-  // Talla de camiseta. Se guarda igual que el dorsal, en el mismo sitio y con la
-  // misma llave, para que quien ya habia rellenado los dorsales no pierda nada al
-  // volver a abrir el enlace y solo tenga que anadir las tallas.
-  const tallas={};
-  const selectores=[].slice.call(document.querySelectorAll('select.tl'));
-  selectores.forEach(function(s){
-    const i=s.dataset.i;
-    if(guardado[i] && guardado[i].t){ s.value=guardado[i].t; tallas[i]=guardado[i].t; }
-    s.addEventListener('change', function(){
-      tallas[i]=s.value||null;
+  function pintar(){
+    const L=LISTA();
+    document.getElementById('app').innerHTML=
+      '<header><h1>'+esc(D.g)+'</h1><div class="sub">'+esc(subtitulo(L))+'</div></header>'
+     +'<div class="ayuda">'+ayuda+(CAMISETA?ayudaTalla:'')+ayudaMas+'</div>'
+     +'<ul>'+L.map(function(x,i){
+        var cab='';
+        if(x.s!==undefined && (i===0 || L[i-1].s!==x.s)){
+          var h=(D.hs && D.hs[x.s]) ? ' <span class="hr">'+esc(D.hs[x.s])+'</span>' : '';
+          cab='<li class="cab">'+esc(nomGrupo(x.s))+h+'</li>';
+        }
+        var botones = AB ? '<div class="eq">'+EQUIPOS.map(function(e){
+              return '<button type="button" class="beq" data-i="'+i+'" data-e="'+e[0]+'">'+e[1]+'</button>';
+            }).join('')+'</div>' : '';
+        var talla = CAMISETA ? '<select class="tl'+(x.cam?' pide':'')+'" data-i="'+i+'" '
+              +'aria-label="Talla de '+esc(x.n)+'"><option value="">Talla</option>'
+              +TALLAS.map(function(t){
+                 return '<option value="'+t+'"'+(tallas[i]===t?' selected':'')+'>'+t+'</option>';
+               }).join('')+'</select>' : '';
+        return cab+'<li class="'+(AB?'conab sinequipo':'')+(x.cam?' pide':'')
+         +(x.nueva?' nueva':'')+'" data-fila="'+i+'">'
+         +'<span class="nom">'+esc(x.n)
+         +((x.cam && x.d) ? '<em class="ahora">ahora '+esc(x.d)+'</em>' : '')
+         +(x.nueva ? '<em class="ahora">nueva</em>'
+                    +'<button type="button" class="quitar" data-q="'+i+'" '
+                    +'aria-label="Quitar a '+esc(x.n)+'">x</button>' : '')+'</span>'
+         +'<input class="d" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" '
+         +'data-i="'+i+'" value="'+esc(dorsal[i]||'')+'" aria-label="Dorsal de '+esc(x.n)+'">'
+         +talla+botones+'</li>';
+       }).join('')+'</ul>'
+     +'<button type="button" class="acc sec2 mas" id="bmas">+ Anadir jugadora</button>'
+     +'<div class="barra"><div class="cuenta" id="cuenta"></div>'
+     +'<button class="acc sec2" id="bcopiar">Copiar</button>'
+     +'<button class="acc" id="benviar">Enviar</button></div>';
+    enchufar();
+    pintarEquipos();
+    revisar();
+  }
+
+  function subtitulo(L){
+    const nuevas=L.length-D.a.length;
+    return [D.c?'curso '+D.c:'', D.h||'',
+            VARIOS?(D.gs||[]).length+' grupos':'',
+            L.length+' jugadoras'+(nuevas?' ('+nuevas+' anadidas)':'')]
+           .filter(Boolean).join(' \u00b7 ');
+  }
+
+  function enchufar(){
+    [].slice.call(document.querySelectorAll('input.d')).forEach(function(c){
+      c.addEventListener('input', function(){
+        c.value=c.value.replace(/[^0-9]/g,'');
+        dorsal[c.dataset.i]=c.value;
+        revisar();
+      });
+    });
+    [].slice.call(document.querySelectorAll('select.tl')).forEach(function(s){
       s.classList.toggle('puesta', !!s.value);
-      revisar();
+      s.addEventListener('change', function(){
+        tallas[s.dataset.i]=s.value||null;
+        s.classList.toggle('puesta', !!s.value);
+        revisar();
+      });
     });
-    s.classList.toggle('puesta', !!s.value);
-  });
-
-  // Equipo de cada jugador: 'v' o 'b'. Volver a pulsar el mismo boton lo quita.
-  const equipo={};
-  [].slice.call(document.querySelectorAll('.beq')).forEach(function(b){
-    const i=b.dataset.i;
-    if(guardado[i] && guardado[i].e) equipo[i]=guardado[i].e;
-    b.addEventListener('click', function(){
-      equipo[i] = (equipo[i]===b.dataset.e) ? null : b.dataset.e;
-      pintarEquipos();
-      revisar();
+    // Equipo de cada jugadora: 'v' o 'b'. Volver a pulsar el mismo boton lo quita.
+    [].slice.call(document.querySelectorAll('.beq')).forEach(function(b){
+      b.addEventListener('click', function(){
+        const i=b.dataset.i;
+        equipo[i] = (equipo[i]===b.dataset.e) ? null : b.dataset.e;
+        pintarEquipos();
+        revisar();
+      });
     });
-  });
+    [].slice.call(document.querySelectorAll('.quitar')).forEach(function(b){
+      b.addEventListener('click', function(){
+        const i=+b.dataset.q, j=i-D.a.length;
+        if(j<0) return;
+        if(!confirm('Quitar a '+LISTA()[i].n+' de la lista?')) return;
+        EXTRA.splice(j,1);
+        // Lo que hubiera escrito despues de ella se corre un puesto hacia arriba.
+        for(var k=i; k<D.a.length+EXTRA.length; k++){
+          dorsal[k]=dorsal[k+1]; tallas[k]=tallas[k+1]; equipo[k]=equipo[k+1];
+        }
+        const fin=D.a.length+EXTRA.length;
+        delete dorsal[fin]; delete tallas[fin]; delete equipo[fin];
+        pintar();
+      });
+    });
+    document.getElementById('bmas').onclick=function(){
+      const n=prompt('Nombre y apellidos de la jugadora que falta:');
+      if(n && n.trim()){ EXTRA.push(n.trim()); pintar(); }
+    };
+    document.getElementById('benviar').onclick=function(){
+      window.open('https://wa.me/'+TEL+'?text='+encodeURIComponent(texto()),'_blank');
+    };
+    document.getElementById('bcopiar').onclick=function(){
+      navigator.clipboard.writeText(texto()).then(function(){ alert('Copiado.'); })
+        .catch(function(){ prompt('Copia este texto:', texto()); });
+    };
+  }
 
   function pintarEquipos(){
     [].slice.call(document.querySelectorAll('.beq')).forEach(function(b){
@@ -326,28 +390,27 @@ if(D){
 
   function valores(){
     const v={};
-    campos.forEach(function(c){ if(c.value) v[c.dataset.i]=c.value; });
+    LISTA().forEach(function(_,i){ if(dorsal[i]) v[i]=dorsal[i]; });
     return v;
   }
 
   // Un dorsal repetido solo es un error dentro del MISMO equipo. Con Verde y Blanco
   // se compara por equipo \u2014los dos pueden llevar un 7\u2014; sin ellos, por grupo.
   function repetidos(){
-    const cajon={}, malos={};
-    campos.forEach(function(c){
-      if(!c.value) return;
-      const i=c.dataset.i;
-      const k = AB ? (equipo[i]||'?') : grupoDe(D.a[i]);
+    const cajon={}, malos={}, L=LISTA();
+    L.forEach(function(x,i){
+      if(!dorsal[i]) return;
+      const k = AB ? (equipo[i]||'?') : grupoDe(x);
       if(AB && !equipo[i]) return;        // sin equipo aun: no se puede juzgar
       cajon[k]=cajon[k]||{};
-      (cajon[k][c.value]=cajon[k][c.value]||[]).push(c);
+      (cajon[k][dorsal[i]]=cajon[k][dorsal[i]]||[]).push(i);
     });
     let n=0;
     Object.keys(cajon).forEach(function(k){
       Object.keys(cajon[k]).forEach(function(num){
         if(cajon[k][num].length>1){
           n++;
-          cajon[k][num].forEach(function(c){ malos[c.dataset.i]=true; });
+          cajon[k][num].forEach(function(i){ malos[i]=true; });
         }
       });
     });
@@ -355,31 +418,34 @@ if(D){
   }
 
   function revisar(){
-    const v=valores(), r=repetidos();
-    campos.forEach(function(c){ c.classList.toggle('repe', !!r.cuales[c.dataset.i]); });
+    const v=valores(), r=repetidos(), L=LISTA();
+    [].slice.call(document.querySelectorAll('input.d')).forEach(function(c){
+      c.classList.toggle('repe', !!r.cuales[c.dataset.i]);
+    });
     let t;
     if(AB){
-      const nv=Object.keys(equipo).filter(function(i){return equipo[i]==='v';}).length;
-      const nb=Object.keys(equipo).filter(function(i){return equipo[i]==='b';}).length;
-      const sin=D.a.length-nv-nb;
+      const nv=L.filter(function(_,i){return equipo[i]==='v';}).length;
+      const nb=L.filter(function(_,i){return equipo[i]==='b';}).length;
+      const sin=L.length-nv-nb;
       t='Verde '+nv+' \u00b7 Blanco '+nb+(sin?' \u00b7 '+sin+' sin equipo':'')
         +' \u00b7 '+Object.keys(v).length+' dorsales';
     } else {
-      t=Object.keys(v).length+' de '+D.a.length+' puestos';
+      t=Object.keys(v).length+' de '+L.length+' puestos';
     }
     if(CAMISETA){
-      const nt=Object.keys(tallas).filter(function(i){return tallas[i];}).length;
-      const faltan=D.a.filter(function(x,i){ return x.cam && !tallas[i]; }).length;
+      const nt=L.filter(function(_,i){return tallas[i];}).length;
+      const faltan=L.filter(function(x,i){ return x.cam && !tallas[i]; }).length;
       if(faltan) t+=' \u00b7 <b>faltan '+faltan+' talla'+(faltan>1?'s':'')+'</b>';
       else if(nt) t+=' \u00b7 '+nt+' camiseta'+(nt>1?'s':'');
     }
     if(r.cuantos) t+=' \u00b7 <b>'+r.cuantos+' repetido'+(r.cuantos>1?'s':'')+'</b>';
     document.getElementById('cuenta').innerHTML=t;
     const estado={};
-    D.a.forEach(function(_,i){
+    L.forEach(function(_,i){
       if(v[i] || equipo[i] || tallas[i])
         estado[i]={d:v[i]||'', e:equipo[i]||'', t:tallas[i]||''};
     });
+    if(EXTRA.length) estado.__extra=EXTRA;
     try{ localStorage.setItem(LLAVE, JSON.stringify(estado)); }catch(e){}
   }
 
@@ -387,78 +453,81 @@ if(D){
   // le llega una lista de pedido que se lee de un tiron, sin rebuscar.
   function bloqueCamisetas(){
     if(!CAMISETA) return '';
-    const piden=D.a.map(function(x,i){return {x:x,i:i};})
-                   .filter(function(p){ return tallas[p.i]; });
+    const piden=LISTA().map(function(x,i){return {x:x,i:i};})
+                       .filter(function(p){ return tallas[p.i]; });
     if(!piden.length) return '';
     const v=valores();
     let t=NL+'CAMISETAS QUE HACEN FALTA ('+piden.length+'):'+NL;
     piden.forEach(function(p){
       // El numero viejo va entre parentesis: es el que hay que retirar.
-      var nota = p.x.d ? ' (cambia la '+p.x.d+')' : ' (no tenia)';
+      var nota = p.x.d ? ' (cambia la '+p.x.d+')' : '';
       t+='Talla '+tallas[p.i]+' \u00b7 '+p.x.n+(v[p.i] ? ' \u00b7 dorsal '+v[p.i] : '')+nota+NL;
     });
     return t;
   }
 
+  // Las que no estaban en el listado del colegio van aparte y por su nombre: son las
+  // unicas que el club tiene que dar de alta, y si se mezclan no se ven.
+  function bloqueNuevas(){
+    const nuevas=LISTA().slice(D.a.length);
+    if(!nuevas.length) return '';
+    let t=NL+'NO ESTABAN EN LA LISTA ('+nuevas.length+'):'+NL;
+    nuevas.forEach(function(x){ t+='\u00b7 '+x.n+NL; });
+    return t;
+  }
+
   function texto(){
-    const v=valores(), r=repetidos();
+    const v=valores(), r=repetidos(), L=LISTA();
+    const marca = p => p.x.nueva ? ' (NUEVA)' : '';
     let t='DORSALES '+mesHoy()+' \u2014 '+D.g+NL;
 
     // Con Verde y Blanco el reparto manda sobre el grupo de entrenamiento: al club
     // le interesa quien juega en cada equipo, no de que clase sale.
     if(AB){
       EQUIPOS.forEach(function(e){
-        const dentro=D.a.map(function(x,i){return {x:x,i:i};})
-                        .filter(function(p){ return equipo[p.i]===e[0]; });
+        const dentro=L.map(function(x,i){return {x:x,i:i};})
+                      .filter(function(p){ return equipo[p.i]===e[0]; });
         t+=NL+'== '+e[1].toUpperCase()+' ('+dentro.length+') =='+NL;
         if(!dentro.length){ t+='(nadie)'+NL; return; }
         const con=dentro.filter(function(p){ return v[p.i]; })
                         .sort(function(a,b){ return (+v[a.i])-(+v[b.i]); });
         const sin=dentro.filter(function(p){ return !v[p.i]; });
-        con.forEach(function(p){ t+=v[p.i]+' \u00b7 '+p.x.n+NL; });
-        sin.forEach(function(p){ t+='-- \u00b7 '+p.x.n+NL; });
+        con.forEach(function(p){ t+=v[p.i]+' \u00b7 '+p.x.n+marca(p)+NL; });
+        sin.forEach(function(p){ t+='-- \u00b7 '+p.x.n+marca(p)+NL; });
       });
-      const huerfanos=D.a.map(function(x,i){return {x:x,i:i};})
-                         .filter(function(p){ return !equipo[p.i]; });
+      const huerfanos=L.map(function(x,i){return {x:x,i:i};})
+                       .filter(function(p){ return !equipo[p.i]; });
       if(huerfanos.length){
         t+=NL+'SIN EQUIPO ('+huerfanos.length+'):'+NL;
-        huerfanos.forEach(function(p){ t+='\u00b7 '+p.x.n+NL; });
+        huerfanos.forEach(function(p){ t+='\u00b7 '+p.x.n+marca(p)+NL; });
       }
-      t+=bloqueCamisetas();
+      t+=bloqueCamisetas()+bloqueNuevas();
       if(r.cuantos) t+=NL+'OJO: hay '+r.cuantos+' dorsal(es) repetido(s) dentro del mismo equipo.'+NL;
       return t;
     }
 
     const grupos=(D.gs&&D.gs.length)?D.gs:[D.g];
     grupos.forEach(function(g,gi){
-      const dentro=D.a.map(function(x,i){return {x:x,i:i};})
-                      .filter(function(p){ return grupoDe(p.x)===gi; });
+      const dentro=L.map(function(x,i){return {x:x,i:i};})
+                    .filter(function(p){ return grupoDe(p.x)===gi; });
       if(!dentro.length) return;
       if(grupos.length>1) t+=NL+'== '+g+' ==';
       const con=dentro.filter(function(p){ return v[p.i]; })
                       .sort(function(a,b){ return (+v[a.i])-(+v[b.i]); });
       const sin=dentro.filter(function(p){ return !v[p.i]; });
       t+=NL;
-      con.forEach(function(p){ t+=v[p.i]+' \u00b7 '+p.x.n+NL; });
+      con.forEach(function(p){ t+=v[p.i]+' \u00b7 '+p.x.n+marca(p)+NL; });
       if(sin.length){
         t+=NL+'SIN DORSAL ('+sin.length+'):'+NL;
-        sin.forEach(function(p){ t+='\u00b7 '+p.x.n+NL; });
+        sin.forEach(function(p){ t+='\u00b7 '+p.x.n+marca(p)+NL; });
       }
     });
-    t+=bloqueCamisetas();
+    t+=bloqueCamisetas()+bloqueNuevas();
     if(r.cuantos) t+=NL+'OJO: hay '+r.cuantos+' dorsal(es) repetido(s) en el mismo equipo.'+NL;
     return t;
   }
 
-  document.getElementById('benviar').onclick=function(){
-    window.open('https://wa.me/'+TEL+'?text='+encodeURIComponent(texto()),'_blank');
-  };
-  document.getElementById('bcopiar').onclick=function(){
-    navigator.clipboard.writeText(texto()).then(function(){ alert('Copiado.'); })
-      .catch(function(){ prompt('Copia este texto:', texto()); });
-  };
-  pintarEquipos();
-  revisar();
+  pintar();
 }
 </script>
 </div></body></html>
