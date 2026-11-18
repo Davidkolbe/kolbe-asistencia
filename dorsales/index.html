@@ -226,6 +226,16 @@ if(D){
       +'<br><br>Si alguno aun no tiene equipo o numero, dejalo en blanco: se manda igual.'
       +'<br><br>Se va guardando en este movil, asi que puedes dejarlo a medias y seguir luego.'
       +'<br><br>Al terminar pulsa <strong>Enviar</strong>.'
+    : CAMISETA
+    // Voleibol sin reparto (benjamin, 18-11-2026). David: \u00abnecesito que la que tenga
+    // camiseta ponga el numero de la camiseta que tiene\u00bb. Se pregunta por SU camiseta,
+    // no por un dorsal que el club vaya a dar.
+    ? 'Si la jugadora <strong>ya tiene camiseta de juego</strong>, escribe el '
+      +'<strong>numero de la camiseta que tiene</strong>.'
+      +'<br><br>Si <strong>no tiene camiseta</strong>, deja el numero en blanco y elige su '
+      +'<strong>talla</strong> en el desplegable.'
+      +'<br><br>Se va guardando en este movil segun lo escribes, asi que puedes dejarlo a medias y seguir luego.'
+      +'<br><br>Al terminar pulsa <strong>Enviar</strong> y se abrira WhatsApp con la lista escrita.'
     : 'Escribe el <strong>dorsal</strong> de cada jugador.<br>'
       +'Si alguno todavia no tiene numero, dejalo en blanco: se manda igual y el club lo completa.'
       +'<br><br>Se va guardando en este movil segun lo escribes, asi que puedes dejarlo a medias y seguir luego.'
@@ -244,6 +254,7 @@ if(D){
       +'<br><br>A esas les he <strong>dejado la casilla del numero en blanco a proposito</strong>: '
       +'con la camiseta nueva puede cambiar. Al lado del nombre te dejo en gris el que '
       +'llevan ahora, para que lo tengas. Si ya sabes el nuevo, escribelo; y si no, dejalo.'
+    : !AB ? ''
     : '<br><br><strong>Y la camiseta:</strong> a quien <strong>necesite una nueva</strong> '
       +'\u2014porque no tiene o porque la suya no le vale\u2014 elige su <strong>talla</strong> en el '
       +'desplegable. Eso es lo que me dice que hay que pedirsela. '
